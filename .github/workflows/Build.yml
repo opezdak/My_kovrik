@@ -15,42 +15,30 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Download and Install Solar2D
+      - name: Download Solar2D Setup
         run: |
-          $url = "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe"
-          $output = "$PSScriptRoot\solar2d_installer.exe"
-          
-          # Скачивание с имитацией браузера, чтобы избежать защиты GitHub
-          $webClient = New-Object System.Net.WebClient
-          $webClient.Headers.Add("User-Agent", "Mozilla/5.0")
-          $webClient.DownloadFile($url, $output)
-          
-          Start-Process -FilePath $output -ArgumentList "/S" -Wait
+          $installer = "$PSScriptRoot\Solar2D.exe"
+          # Используем официальную актуальную ссылку через Invoke-RestMethod / curl илипрямой вызов с правильными заголовками
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe" -OutFile $installer -Headers @{ "User-Agent" = "Mozilla/5.0" }
+          Start-Process -FilePath $installer -ArgumentList "/S" -Wait
         shell: pwsh
 
       - name: Build Android App
         run: |
-          $paths = @(
-              "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe",
-              "C:\Solar2D\Corona Simulator.exe",
-              "$env:LOCALAPPDATA\Corona Labs\Corona Simulator.exe"
-          )
-          $simulator = $null
-          foreach ($p in $paths) {
-              if (Test-Path $p) {
-                  $simulator = $p
-                  break
-              }
+          $simulator = "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe"
+          if (-not (Test-Path $simulator)) {
+              $simulator = "C:\Solar2D\Corona Simulator.exe"
           }
-          if (-eq $null) {
+          if (-not (Test-Path $simulator)) {
               $simulator = (Get-ChildItem -Path "C:\" -Filter "Corona Simulator.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
           }
-          
+
           if ($simulator) {
-              Write-Host "Found simulator at: $simulator"
+              Write-Host "Building using: $simulator"
               & "$simulator" /app="$PWD" /build=android
           } else {
-              Write-Error "Corona Simulator not found!"
+              Write-Error "Simulator not found!"
               exit 1
           }
         shell: pwsh
