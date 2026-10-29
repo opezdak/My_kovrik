@@ -15,19 +15,18 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Download and Install Solar2D
+      - name: Install Solar2D via Chocolatey
         run: |
-          $installerUrl = "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe"
-          Invoke-WebRequest -Uri $installerUrl -OutFile "solar2d.exe"
-          Start-Process -FilePath "solar2d.exe" -ArgumentList "/S" -Wait
+          choco install solar2d -y
         shell: pwsh
 
-      - name: Find Corona Simulator and Build
+      - name: Build Android App
         run: |
           $paths = @(
               "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe",
               "C:\Solar2D\Corona Simulator.exe",
-              "$env:LOCALAPPDATA\Corona Labs\Corona Simulator.exe"
+              "$env:LOCALAPPDATA\Corona Labs\Corona Simulator.exe",
+              "C:\ProgramData\chocolatey\lib\solar2d\tools\Corona Simulator.exe"
           )
           $simulator = $null
           foreach ($p in $paths) {
@@ -37,7 +36,6 @@ jobs:
               }
           }
           if (-eq $null) {
-              # Если не нашли по путям, ищем через поиск
               $simulator = (Get-ChildItem -Path "C:\" -Filter "Corona Simulator.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
           }
           
