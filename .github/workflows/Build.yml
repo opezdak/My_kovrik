@@ -15,9 +15,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Solar2D via Chocolatey
+      - name: Download and Install Solar2D
         run: |
-          choco install solar2d -y
+          $url = "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe"
+          $output = "$PSScriptRoot\solar2d_installer.exe"
+          
+          # Скачивание с имитацией браузера, чтобы избежать защиты GitHub
+          $webClient = New-Object System.Net.WebClient
+          $webClient.Headers.Add("User-Agent", "Mozilla/5.0")
+          $webClient.DownloadFile($url, $output)
+          
+          Start-Process -FilePath $output -ArgumentList "/S" -Wait
         shell: pwsh
 
       - name: Build Android App
@@ -25,8 +33,7 @@ jobs:
           $paths = @(
               "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe",
               "C:\Solar2D\Corona Simulator.exe",
-              "$env:LOCALAPPDATA\Corona Labs\Corona Simulator.exe",
-              "C:\ProgramData\chocolatey\lib\solar2d\tools\Corona Simulator.exe"
+              "$env:LOCALAPPDATA\Corona Labs\Corona Simulator.exe"
           )
           $simulator = $null
           foreach ($p in $paths) {
