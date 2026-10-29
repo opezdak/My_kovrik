@@ -1,56 +1,27 @@
-name: Build Solar2D APK
+name: Build Android APK
 
 on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Download & Install Solar2D
+      - name: Build APK
         run: |
-          $installer = "$env:TEMP\solar2d.exe"
-          # Используем стабильное зеркало с правильным User-Agent
-          $uri = "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe"
-          
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          Invoke-WebRequest -Uri $uri -OutFile $installer -UserAgent "Mozilla/5.0"
-          
-          Start-Process -FilePath $installer -ArgumentList "/S" -Wait
-        shell: pwsh
+          curl -sL https://solar2d.com/download.sh | bash
+          $HOME/.solar2d/bin/solar2d build --platform android --output game.apk .
 
-      - name: Build Android App
-        run: |
-          $simulator = "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe"
-          if (-not (Test-Path $simulator)) {
-              $simulator = "C:\Solar2D\Corona Simulator.exe"
-          }
-          if (-not (Test-Path $simulator)) {
-              $simulator = (Get-ChildItem -Path "C:\" -Filter "Corona Simulator.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          }
-
-          if ($simulator) {
-              Write-Host "Building using: $simulator"
-              & "$simulator" /app="$PWD" /build=android
-          } else {
-              Write-Error "Simulator not found!"
-              exit 1
-          }
-        shell: pwsh
-
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: game-apk
-          path: |
-            *.apk
-            **/*.apk
-            
+          name: my-game
+          path: game.apk
+          
