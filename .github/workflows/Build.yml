@@ -15,17 +15,16 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Download Solar2D via GitHub CLI
+        run: |
+          gh release download 2023.3684 --repo coronalabs/corona --pattern "*.exe" --output solar2d.exe
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+
       - name: Install Solar2D
         run: |
-          # Скачиваем установщик с зеркала без редиректов GitHub
-          $installer = "$PSScriptRoot\solar2d.exe"
-          $sourceUrl = "https://github.com/coronalabs/corona/releases/download/2023.3684/Solar2D-2023.3684.exe"
-          
-          # Используем Invoke-RestMethod для прямой загрузки бинарника
-          $wc = New-Object System.Net.WebClient
-          $wc.DownloadFile($sourceUrl, $installer)
-          
-          Start-Process -FilePath $installer -ArgumentList "/S" -Wait
+          Start-Process -FilePath "solar2d.exe" -ArgumentList "/S" -Wait
         shell: pwsh
 
       - name: Build Android App
