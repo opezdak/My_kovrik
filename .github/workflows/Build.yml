@@ -10,24 +10,44 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
 
       - name: Download and Install Solar2D
         run: |
-          Invoke-WebRequest -Uri "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe" -OutFile "solar2d.exe"
+          $installerUrl = "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe"
+          Invoke-WebRequest -Uri $installerUrl -OutFile "solar2d.exe"
           Start-Process -FilePath "solar2d.exe" -ArgumentList "/S" -Wait
         shell: pwsh
 
-      - name: Build Android App
+      - name: Find Corona Simulator and Build
         run: |
-          $solarPath = "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe"
-          if (-not (Test-Path $solarPath)) {
-              $solarPath = "C:\Solar2D\Corona Simulator.exe"
+          $paths = @(
+              "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe",
+              "C:\Solar2D\Corona Simulator.exe",
+              "$env:LOCALAPPDATA\Corona Labs\Corona Simulator.exe"
+          )
+          $simulator = $null
+          foreach ($p in $paths) {
+              if (Test-Path $p) {
+                  $simulator = $p
+                  break
+              }
           }
-          & "$solarPath" /app="$PWD" /build=android
+          if (-eq $null) {
+              # Если не нашли по путям, ищем через поиск
+              $simulator = (Get-ChildItem -Path "C:\" -Filter "Corona Simulator.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          }
+          
+          if ($simulator) {
+              Write-Host "Found simulator at: $simulator"
+              & "$simulator" /app="$PWD" /build=android
+          } else {
+              Write-Error "Corona Simulator not found!"
+              exit 1
+          }
         shell: pwsh
 
       - name: Upload APK Artifact
