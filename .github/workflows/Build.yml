@@ -15,20 +15,23 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Download Solar2D Setup
+      - name: Download Solar2D Archive
         run: |
-          $installer = "$PSScriptRoot\Solar2D.exe"
-          # Используем официальную актуальную ссылку через Invoke-RestMethod / curl илипрямой вызов с правильными заголовками
-          $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest -Uri "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe" -OutFile $installer -Headers @{ "User-Agent" = "Mozilla/5.0" }
-          Start-Process -FilePath $installer -ArgumentList "/S" -Wait
+          $zipPath = "$PSScriptRoot\solar2d.zip"
+          $extractPath = "C:\Solar2D"
+          
+          # Скачиваем стабильный архив движка
+          $url = "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.win32.zip"
+          # Если прямая ссылка заблокирована, используем альтернативный метод загрузки
+          Invoke-WebRequest -Uri "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe" -OutFile "$PSScriptRoot\installer.exe"
+          Start-Process -FilePath "$PSScriptRoot\installer.exe" -ArgumentList "/S", "/D=C:\Solar2D" -Wait
         shell: pwsh
 
       - name: Build Android App
         run: |
-          $simulator = "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe"
+          $simulator = "C:\Solar2D\Corona Simulator.exe"
           if (-not (Test-Path $simulator)) {
-              $simulator = "C:\Solar2D\Corona Simulator.exe"
+              $simulator = "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe"
           }
           if (-not (Test-Path $simulator)) {
               $simulator = (Get-ChildItem -Path "C:\" -Filter "Corona Simulator.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
