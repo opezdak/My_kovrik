@@ -9,42 +9,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Download Solar2D via GitHub CLI
-        run: |
-          gh release download 2023.3684 --repo coronalabs/corona --pattern "*.exe" --output solar2d.exe
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: pwsh
-
-      - name: Install Solar2D
-        run: |
-          Start-Process -FilePath "solar2d.exe" -ArgumentList "/S" -Wait
-        shell: pwsh
-
-      - name: Build Android App
-        run: |
-          $simulator = "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe"
-          if (-not (Test-Path $simulator)) {
-              $simulator = "C:\Solar2D\Corona Simulator.exe"
-          }
-          if (-not (Test-Path $simulator)) {
-              $simulator = (Get-ChildItem -Path "C:\" -Filter "Corona Simulator.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          }
-
-          if ($simulator) {
-              Write-Host "Building using: $simulator"
-              & "$simulator" /app="$PWD" /build=android
-          } else {
-              Write-Error "Simulator not found!"
-              exit 1
-          }
-        shell: pwsh
+      - name: Build Solar2D App
+        uses: krzysztof-kaczor/action-solar2d@v1
+        with:
+          version: 'latest'
+          target: 'android'
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
