@@ -1,0 +1,40 @@
+name: Build Solar2D APK
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Download and Install Solar2D
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/coronalabs/corona/releases/download/2024.3705/Solar2D-2024.3705.exe" -OutFile "solar2d.exe"
+          Start-Process -FilePath "solar2d.exe" -ArgumentList "/S" -Wait
+        shell: pwsh
+
+      - name: Build Android App
+        run: |
+          $solarPath = "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe"
+          if (-not (Test-Path $solarPath)) {
+              $solarPath = "C:\Solar2D\Corona Simulator.exe"
+          }
+          & "$solarPath" /app="$PWD" /build=android
+        shell: pwsh
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-apk
+          path: |
+            *.apk
+            **/*.apk
+            
