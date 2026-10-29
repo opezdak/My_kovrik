@@ -4,24 +4,73 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build APK
+      - name: Download and Install Solar2D
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -sL https://solar2d.com/download.sh | bash
-          $HOME/.solar2d/bin/solar2d build --platform android --output game.apk .
+          Write-Host "Получение информации о последнем релизе Solar2D..."
+          $release = gh api repos/coronalabs/corona/releases/latest | ConvertFrom-Json
+          $asset = $release.assets | Where-Object { $_.name -like "*.exe" } | Select-Object -First 1
+          
+          if (-not $asset) {
+            Write-Error "Не найден .exe файл в релизе Solar2D!"
+            exit 1
+          }
+          
+          Write-Host "Скачивание файла $($asset.name)..."
+          curl.exe -L -o solar2d_setup.exe $asset.browser_download_url
+          
+          Write-Host "Установка Solar2D..."
+          Start-Process -FilePath ".\solar2d_setup.exe" -ArgumentList "/S" -Wait
+          
+          Remove-Item -Path ".\solar2d_setup.exe" -Force
 
-      - name: Upload APK
+      - name: Build Android APK
+        shell: pwsh
+        run: |
+          $paths = @(
+            "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe",
+            "C:\Program Files\Corona Labs\Corona\Corona Simulator.exe",
+            "C:\Solar2D\Corona Simulator.exe"
+          )
+          
+          $simulator = $null
+          foreach ($p in $paths) {
+            if (Test-Path $p) {
+              $simulator = $p
+              break
+            }
+          }
+          
+          if (-not $simulator) {
+            $simulator = (Get-ChildItem -Path "C:\" -Filter "Corona Simulator.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          }
+          
+          if (-not $simulator) {
+            Write-Error "Corona Simulator.exe не найден!"
+            exit 1
+          }
+          
+          Write-Host "Запуск сборки через: $simulator"
+          & "$simulator" /app="$PWD" /build=android
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: my-game
-          path: game.apk
-          
+          name: game-apk
+          path: |
+            *.apk
+            **/*.apk
+            
