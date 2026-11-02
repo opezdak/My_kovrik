@@ -1,76 +1,87 @@
-name: Build Android APK
+name: Build Android App
 
-on: [push, workflow_dispatch]
+on:
+  workflow_dispatch:
+    inputs:
+      AppName:
+        description: 'App Name'
+        required: true
+        default: 'WaveGame'
+      AppPackage:
+        description: 'Package (com.yourname.wave)'
+        required: true
+        default: 'com.my.wavegame'
+      AppVersion:
+        description: 'Version Name'
+        required: true
+        default: '1.0'
+      AppVersionCode:
+        description: 'Version Code'
+        required: true
+        default: '1'
+      Solar2DBuild:
+        description: 'Solar2D Build (2026.3736)'
+        required: true
+        default: '2026.3736'
+
+env:
+  APP_NAME: '${{ inputs.AppName }}'
+  APP_PACKAGE: '${{ inputs.AppPackage }}'
+  APP_VERSION_NAME: '${{ inputs.AppVersion }}'
+  APP_VERSION_CODE: '${{ inputs.AppVersionCode }}'
+  S2D_BUILD_NAME: '${{ inputs.Solar2DBuild }}'
+  KEYSTORE_PASSWORD: android
+  KEYSTORE_ALIAS: androiddebugkey
+  KEYSTORE_ALIAS_PASSWORD: android
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: macos-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java JDK
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '8'
 
-      - name: Download and Install Solar2D
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate debug keystore
         run: |
-          Write-Host "Получение информации о последнем релизе Solar2D..."
-          $release = gh api repos/coronalabs/corona/releases/latest | ConvertFrom-Json
-          $asset = $release.assets | Where-Object { $_.name -like "*.exe" } | Select-Object -First 1
-          
-          if (-not $asset) {
-            Write-Error "Не найден .exe файл в релизе Solar2D!"
-            exit 1
-          }
-          
-          Write-Host "Скачивание файла $($asset.name)..."
-          curl.exe -L -o solar2d_setup.exe $asset.browser_download_url
-          
-          Write-Host "Установка Solar2D..."
-          Start-Process -FilePath ".\solar2d_setup.exe" -ArgumentList "/S" -Wait
-          
-          Remove-Item -Path ".\solar2d_setup.exe" -Force
+          keytool -genkeypair -v -keystore Util/android.keystore -storetype JKS \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug, OU=Android, O=Android, L=Unknown, S=Unknown, C=US"
 
-      - name: Build Android APK
-        shell: pwsh
+      - name: Write build recipe
         run: |
-          $paths = @(
-            "C:\Program Files (x86)\Corona Labs\Corona\Corona Simulator.exe",
-            "C:\Program Files\Corona Labs\Corona\Corona Simulator.exe",
-            "C:\Solar2D\Corona Simulator.exe"
-          )
-          
-          $simulator = $null
-          foreach ($p in $paths) {
-            if (Test-Path $p) {
-              $simulator = $p
-              break
-            }
+          cat > Util/recipe.lua << 'EOF'
+          local root = os.getenv('GITHUB_WORKSPACE') or os.getenv('WORKSPACE')
+          return {
+          	appName = os.getenv('APP_NAME'),
+          	androidAppPackage = os.getenv('APP_PACKAGE'),
+          	androidStore = "google",
+          	platform = "android",
+          	appVersion = os.getenv('APP_VERSION_NAME'),
+          	androidVersionCode = os.getenv('APP_VERSION_CODE'),
+          	projectPath = root .. "/Project",
+          	dstPath = root .. '/Output',
+          	certificatePath = root .. "/Util/android.keystore",
+          	keystorePassword = os.getenv('KEYSTORE_PASSWORD'),
+          	keystoreAlias = os.getenv('KEYSTORE_ALIAS'),
+          	keystoreAliasPassword = os.getenv('KEYSTORE_ALIAS_PASSWORD'),
           }
-          
-          if (-not $simulator) {
-            $simulator = (Get-ChildItem -Path "C:\" -Filter "Corona Simulator.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          }
-          
-          if (-not $simulator) {
-            Write-Error "Corona Simulator.exe не найден!"
-            exit 1
-          }
-          
-          Write-Host "Запуск сборки через: $simulator"
-          & "$simulator" /app="$PWD" /build=android
+          EOF
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+      - name: Unpack project
+        run: |
+          rm -rf Project
+          mkdir Project
+          unzip -o ./*.zip -d Project
+
+      - name: Build Android
+        run: Util/build.sh
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: game-apk
-          path: |
-            *.apk
-            **/*.apk
-            
+          name: AndroidBuild
+          path: Output/
